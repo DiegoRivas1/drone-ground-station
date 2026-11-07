@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+backend/.venv/
+.venv/
+backend/storage/*.db
+backend/storage/*.db-*
+backend/storage/videos/*
+!backend/storage/videos/.gitkeep
+backend/storage/flights/*
+!backend/storage/flights/.gitkeep
+backend/storage/recorridos/*
+!backend/storage/recorridos/.gitkeep

@@ -1,0 +1,4 @@
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30
+markdown>=3.5
+imageio-ffmpeg>=0.5
