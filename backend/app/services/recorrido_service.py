@@ -24,7 +24,6 @@ import json
 import math
 import re
 import shutil
-import subprocess
 import threading
 import time
 from datetime import datetime
@@ -32,7 +31,7 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from app.config import RECORRIDOS_DIR, VIDEO_FPS
+from app.config import RECORRIDOS_DIR
 
 ARCHIVOS_TRAMO = {"video.h264", "telemetria.csv", "meta.json"}
 _ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,80}$")
@@ -350,16 +349,10 @@ def _procesar_tramo(rid: str, n: int) -> None:
         if not (d / "meta.json").exists():
             aviso = (aviso + " " if aviso else "") + "Sin meta.json: se sincroniza con la 1ª muestra de telemetría."
 
-        ff = ffmpeg_path()
-        if not ff:
-            raise RuntimeError("ffmpeg no disponible: instala requirements.txt (imageio-ffmpeg) o ffmpeg")
-        r = subprocess.run(
-            [ff, "-y", "-loglevel", "error", "-framerate", str(VIDEO_FPS), "-f", "h264",
-             "-i", str(d / "video.h264"), "-c", "copy", str(d / "video.mp4")],
-            capture_output=True, text=True, timeout=900,
-        )
-        if r.returncode != 0 or not (d / "video.mp4").exists():
-            raise RuntimeError("ffmpeg no pudo convertir el video: " + (r.stderr or "")[-300:])
+        # Misma conversión que los vuelos: recodifica, tolera la falta de fotogramas
+        # clave del Mavic Air y repone SPS/PPS si la grabación no los trae.
+        from app.services.flight_archive import convert_to_mp4  # import diferido: evita ciclos
+        convert_to_mp4(d / "video.h264", d / "video.mp4")
     except Exception as e:  # noqa: BLE001 - se informa en el panel
         error = str(e)
 

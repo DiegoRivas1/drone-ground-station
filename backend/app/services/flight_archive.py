@@ -21,7 +21,7 @@ from fastapi import HTTPException
 
 from app.config import FLIGHTS_DIR, VIDEO_FPS
 from app.database.db import connect
-from app.services import telemetry_service, video_service
+from app.services import h264_params, telemetry_service, video_service
 from app.services.recorrido_service import ffmpeg_path
 
 log = logging.getLogger("flight_archive")
@@ -43,7 +43,7 @@ def flight_dir(flight_id: str) -> Path:
 
 # Sube este número si cambia la conversión: los MP4 hechos con una versión anterior
 # se regeneran solos (la v1 copiaba sin recodificar y salían archivos que no abren).
-MP4_VERSION = 2
+MP4_VERSION = 3
 
 _DURATION_RE = re.compile(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)")
 
@@ -63,14 +63,32 @@ def convert_to_mp4(src: Path, dst: Path) -> None:
         raise RuntimeError("ffmpeg no disponible (instala requirements.txt: imageio-ffmpeg)")
     tmp = dst.with_suffix(".tmp.mp4")
     fps = str(VIDEO_FPS)
+    fixed = None
+    if not h264_params.has_params(src):
+        # Grabación sin SPS/PPS: usar los de otra grabación del mismo dron.
+        header = h264_params.find_header(exclude=src)
+        if header is None:
+            raise RuntimeError(
+                f"{src.name} no contiene SPS/PPS y no hay otra grabación de la que tomarlos. "
+                "Actualiza la app (ya los añade al empezar a grabar) y graba de nuevo.")
+        fixed = src.with_suffix(".fixed.h264")
+        h264_params.write_with_header(src, fixed, header)
+        log.info("%s: sin SPS/PPS, se añadieron los de otra grabación", src.name)
     cmd = [ff, "-y", "-loglevel", "error",
            "-err_detect", "ignore_err", "-fflags", "+genpts+discardcorrupt",
-           "-r", fps, "-f", "h264", "-i", str(src),
+           # El Mavic Air casi no manda fotogramas clave (intra refresh): sin showall
+           # ffmpeg descarta todo lo anterior al primer keyframe (o el video entero).
+           "-flags2", "+showall",
+           "-r", fps, "-f", "h264", "-i", str(fixed or src),
            "-an", "-fps_mode", "cfr", "-r", fps,
            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
            "-pix_fmt", "yuv420p", "-profile:v", "main", "-level", "4.0",
            "-movflags", "+faststart", str(tmp)]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+    finally:
+        if fixed is not None and fixed.exists():
+            fixed.unlink()
     seconds = _duration(ff, tmp) if tmp.exists() else 0.0
     if r.returncode != 0 or seconds <= 0:
         if tmp.exists():
