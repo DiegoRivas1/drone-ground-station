@@ -142,8 +142,10 @@ def to_mp4(recording_id: str) -> Path:
     src = video_path(recording_id)
     if not src.exists():
         raise HTTPException(404, "Video no encontrado")
+    from app.services.flight_archive import MP4_VERSION  # import diferido: evita ciclos
     dst = src.with_suffix(".mp4")
-    if dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
+    marker = src.with_suffix(f".mp4v{MP4_VERSION}")  # MP4 hecho con la conversión actual
+    if dst.exists() and marker.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
         return dst
     if not _ffmpeg():
         raise HTTPException(501, "ffmpeg no está disponible en la PC; descarga el .h264")
@@ -152,12 +154,13 @@ def to_mp4(recording_id: str) -> Path:
         convert_to_mp4(src, dst)
     except RuntimeError as e:
         raise HTTPException(500, str(e))
+    marker.touch()
     return dst
 
 
 def delete_video(recording_id: str) -> None:
     path = video_path(recording_id)
-    for p in (path, path.with_suffix(".mp4"), path.with_suffix(".upload")):
+    for p in (path, path.with_suffix(".mp4"), path.with_suffix(".upload"), *path.parent.glob(f"{path.stem}.mp4v*")):
         if p.exists():
             p.unlink()
     with connect() as conn:

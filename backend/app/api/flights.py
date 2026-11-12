@@ -44,7 +44,7 @@ def export_csv(flight_id: str):
 @router.post("/{flight_id}/archive")
 def archive(flight_id: str):
     """(Re)genera storage/flights/<id>/: telemetria.csv, video.mp4, resumen.json."""
-    return flight_archive.archive_flight(flight_id)
+    return flight_archive.archive_flight(flight_id, force=True)
 
 
 @router.get("/{flight_id}/files")

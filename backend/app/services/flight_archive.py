@@ -12,6 +12,7 @@ POST /api/flights/{id}/archive.
 """
 import json
 import logging
+import re
 import subprocess
 import threading
 from pathlib import Path
@@ -40,29 +41,53 @@ def flight_dir(flight_id: str) -> Path:
     return FLIGHTS_DIR / flight_id
 
 
+# Sube este número si cambia la conversión: los MP4 hechos con una versión anterior
+# se regeneran solos (la v1 copiaba sin recodificar y salían archivos que no abren).
+MP4_VERSION = 2
+
+_DURATION_RE = re.compile(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)")
+
+
 def convert_to_mp4(src: Path, dst: Path) -> None:
-    """H.264 crudo → MP4. Primero sin recodificar (rápido); si falla, recodifica."""
+    """H.264 crudo del dron → MP4 que abre en cualquier reproductor.
+
+    SIEMPRE se recodifica. Copiar el H.264 tal cual (-c copy) "funciona" pero deja un
+    MP4 roto: la grabación empieza a mitad de un GOP (sin fotograma clave) y el flujo
+    crudo no trae marcas de tiempo, así que Windows/navegadores dicen "error".
+    Al recodificar, ffmpeg descarta lo que no se puede decodificar, empieza en el
+    primer fotograma clave y genera tiempos limpios a VIDEO_FPS.
+    Perfil Main + yuv420p + faststart = compatible con Windows, móviles y navegadores.
+    """
     ff = ffmpeg_path()
     if not ff:
         raise RuntimeError("ffmpeg no disponible (instala requirements.txt: imageio-ffmpeg)")
     tmp = dst.with_suffix(".tmp.mp4")
-    base = [ff, "-y", "-loglevel", "error", "-fflags", "+genpts",
-            "-r", str(VIDEO_FPS), "-f", "h264", "-i", str(src)]
-    attempts = [
-        ["-c:v", "copy"],
-        ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p"],
-    ]
-    last_err = ""
-    for codec in attempts:
-        r = subprocess.run(base + codec + ["-an", "-movflags", "+faststart", str(tmp)],
-                           capture_output=True, text=True, timeout=1800)
-        if r.returncode == 0 and tmp.exists() and tmp.stat().st_size > 0:
-            tmp.replace(dst)
-            return
-        last_err = (r.stderr or "")[-400:]
-    if tmp.exists():
-        tmp.unlink()
-    raise RuntimeError(f"ffmpeg no pudo convertir {src.name}: {last_err}")
+    fps = str(VIDEO_FPS)
+    cmd = [ff, "-y", "-loglevel", "error",
+           "-err_detect", "ignore_err", "-fflags", "+genpts+discardcorrupt",
+           "-r", fps, "-f", "h264", "-i", str(src),
+           "-an", "-fps_mode", "cfr", "-r", fps,
+           "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+           "-pix_fmt", "yuv420p", "-profile:v", "main", "-level", "4.0",
+           "-movflags", "+faststart", str(tmp)]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+    seconds = _duration(ff, tmp) if tmp.exists() else 0.0
+    if r.returncode != 0 or seconds <= 0:
+        if tmp.exists():
+            tmp.unlink()
+        raise RuntimeError(f"ffmpeg no pudo convertir {src.name}: {(r.stderr or '')[-400:]}")
+    tmp.replace(dst)
+    log.info("MP4 listo: %s (%.1f s)", dst, seconds)
+
+
+def _duration(ff: str, path: Path) -> float:
+    """Duración del MP4 resultante (0 si no se puede leer = archivo inválido)."""
+    r = subprocess.run([ff, "-hide_banner", "-i", str(path)], capture_output=True, text=True, timeout=60)
+    m = _DURATION_RE.search(r.stderr or "")
+    if not m:
+        return 0.0
+    h, mnt, sec = m.groups()
+    return int(h) * 3600 + int(mnt) * 60 + float(sec)
 
 
 def _videos_of(flight_id: str) -> list[dict]:
@@ -73,8 +98,18 @@ def _videos_of(flight_id: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def archive_flight(flight_id: str) -> dict:
-    """Escribe/actualiza la carpeta del vuelo. Idempotente."""
+def _previous_mp4_version(d: Path) -> int:
+    try:
+        return int(json.loads((d / "resumen.json").read_text(encoding="utf-8")).get("mp4_version", 1))
+    except Exception:
+        return 1
+
+
+def archive_flight(flight_id: str, force: bool = False) -> dict:
+    """Escribe/actualiza la carpeta del vuelo. Idempotente.
+
+    force=True (botón "Guardar carpeta") rehace también los MP4.
+    """
     d = flight_dir(flight_id)
     flight = telemetry_service.get_flight(flight_id)
     if not flight:
@@ -85,12 +120,13 @@ def archive_flight(flight_id: str) -> dict:
 
         errors = []
         mp4s = []
+        redo = force or _previous_mp4_version(d) < MP4_VERSION
         for i, v in enumerate(_videos_of(flight_id), start=1):
             src = video_service.video_path(v["id"])
             if not src.exists() or src.stat().st_size == 0:
                 continue
             dst = d / ("video.mp4" if i == 1 else f"video_{i}.mp4")
-            if dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
+            if not redo and dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
                 mp4s.append(dst.name)
                 continue
             try:
@@ -110,6 +146,7 @@ def archive_flight(flight_id: str) -> dict:
             "events": len(events),
             "ended": any(e["type"] == "FLIGHT_END" for e in events),
             "videos": mp4s,
+            "mp4_version": MP4_VERSION,
             "errors": errors,
         }
         (d / "resumen.json").write_text(json.dumps(resumen, indent=2, ensure_ascii=False), encoding="utf-8")
