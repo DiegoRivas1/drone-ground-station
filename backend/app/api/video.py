@@ -1,9 +1,9 @@
 """Recepción de video H.264 desde la app y descarga desde el panel."""
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from app.models.schemas import VideoComplete
-from app.services import video_service
+from app.services import flight_archive, video_service
 from app.services.ws_hub import hub
 
 router = APIRouter(prefix="/api", tags=["video"])
@@ -24,17 +24,26 @@ async def post_chunk(recording_id: str, request: Request, seq: int, flight_id: s
 
 
 @router.post("/video/{recording_id}/complete")
-async def post_complete(recording_id: str, info: VideoComplete, flight_id: str = ""):
+async def post_complete(recording_id: str, info: VideoComplete, background: BackgroundTasks,
+                        flight_id: str = ""):
     row = video_service.complete(recording_id, flight_id, info.chunks, info.incomplete)
     hub.end_live(recording_id)
+    # Si no hubo pérdidas, ya se puede generar el MP4 del vuelo. Si las hubo, el
+    # teléfono sube el archivo completo a continuación (/upload) y se genera ahí.
+    if row.get("flight_id") and not info.incomplete:
+        background.add_task(flight_archive.archive_quietly, row["flight_id"])
     await hub.broadcast_json("video_completed", row)
     return row
 
 
 @router.post("/video/{recording_id}/upload")
-async def post_upload(recording_id: str, request: Request, flight_id: str = ""):
+async def post_upload(recording_id: str, request: Request, background: BackgroundTasks,
+                      flight_id: str = ""):
     """Archivo completo (se usa cuando hubo pérdidas por Wi-Fi durante la grabación)."""
     result = await video_service.replace_with_upload(recording_id, flight_id, request)
+    owner = video_service.flight_of(recording_id) or flight_id
+    if owner:
+        background.add_task(flight_archive.archive_quietly, owner)
     await hub.broadcast_json("video_completed", {"id": recording_id, **result})
     return result
 

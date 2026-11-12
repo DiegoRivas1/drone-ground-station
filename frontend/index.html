@@ -32,10 +32,10 @@
           <button class="btn btn-ghost" id="btn-video-reconnect" title="Reiniciar reproductor">↻</button>
         </div>
         <div class="video-wrap">
-          <video id="live-video" autoplay muted playsinline></video>
+          <img id="live-img" alt="Video en vivo del dron">
           <div class="video-empty" id="video-empty">
             <strong>Sin video</strong>
-            <span>Pulsa <b>● REC</b> en la app: el video se graba en el teléfono y se envía aquí.</span>
+            <span>Abre la app con el dron conectado y la PC configurada: el video llega solo (no hace falta REC).</span>
           </div>
         </div>
       </div>
@@ -166,7 +166,6 @@
   <div class="toast" id="toast"></div>
 
   <script src="assets/vendor/leaflet/leaflet.js"></script>
-  <script src="assets/vendor/jmuxer.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

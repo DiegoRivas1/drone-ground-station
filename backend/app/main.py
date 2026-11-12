@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import flights, recorridos, routes, telemetry, video, ws
+from app.api import flights, live, recorridos, routes, telemetry, video, ws
 from app.config import FRONTEND_DIR
 from app.database.db import init_db
 
@@ -74,6 +74,7 @@ app.include_router(telemetry.router)
 app.include_router(flights.router)
 app.include_router(routes.router)
 app.include_router(video.router)
+app.include_router(live.router)
 app.include_router(recorridos.router)
 app.include_router(ws.router)
 

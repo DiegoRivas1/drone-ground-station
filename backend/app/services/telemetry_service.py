@@ -81,10 +81,15 @@ def save_event(e: FlightEventIn) -> dict:
 
 
 def list_flights() -> list[dict]:
+    from app.services.flight_archive import list_files  # import diferido: evita ciclos
     with connect() as conn:
-        return rows_to_dicts(conn.execute(
-            """SELECT f.*, (SELECT COUNT(*) FROM events e WHERE e.flight_id = f.id) AS events
+        rows = rows_to_dicts(conn.execute(
+            """SELECT f.*, (SELECT COUNT(*) FROM events e WHERE e.flight_id = f.id) AS events,
+                      EXISTS(SELECT 1 FROM events e WHERE e.flight_id = f.id AND e.type = 'FLIGHT_END') AS ended
                FROM flights f ORDER BY last_seen_ms DESC"""))
+    for r in rows:
+        r["files"] = list_files(r["id"])
+    return rows
 
 
 def get_flight(flight_id: str) -> dict | None:

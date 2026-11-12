@@ -5,8 +5,6 @@ storage/videos/<recording_id>.h264. Si al terminar el teléfono detecta pérdida
 sube el archivo completo, que reemplaza la copia de la PC.
 """
 import re
-import shutil
-import subprocess
 import time
 from pathlib import Path
 
@@ -119,10 +117,21 @@ async def replace_with_upload(recording_id: str, flight_id: str, request: Reques
     return {"status": "ok", "bytes": size}
 
 
+def flight_of(recording_id: str) -> str | None:
+    with connect() as conn:
+        row = _get(conn, check_id(recording_id))
+    return row["flight_id"] if row else None
+
+
+def _ffmpeg() -> str | None:
+    from app.services.recorrido_service import ffmpeg_path  # import diferido: evita ciclos
+    return ffmpeg_path()
+
+
 def list_videos() -> list[dict]:
     with connect() as conn:
         rows = rows_to_dicts(conn.execute("SELECT * FROM videos ORDER BY started_ms DESC"))
-    has_ffmpeg = shutil.which("ffmpeg") is not None
+    has_ffmpeg = _ffmpeg() is not None
     for r in rows:
         r["mp4_available"] = has_ffmpeg
     return rows
@@ -136,16 +145,13 @@ def to_mp4(recording_id: str) -> Path:
     dst = src.with_suffix(".mp4")
     if dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
         return dst
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        raise HTTPException(501, "ffmpeg no está instalado en la PC; descarga el .h264")
-    result = subprocess.run(
-        [ffmpeg, "-y", "-loglevel", "error", "-framerate", "30", "-f", "h264",
-         "-i", str(src), "-c", "copy", str(dst)],
-        capture_output=True, text=True, timeout=600,
-    )
-    if result.returncode != 0 or not dst.exists():
-        raise HTTPException(500, f"ffmpeg falló: {result.stderr[-500:]}")
+    if not _ffmpeg():
+        raise HTTPException(501, "ffmpeg no está disponible en la PC; descarga el .h264")
+    from app.services.flight_archive import convert_to_mp4  # import diferido: evita ciclos
+    try:
+        convert_to_mp4(src, dst)
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
     return dst
 
 

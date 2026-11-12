@@ -1,0 +1,141 @@
+"""Carpeta por vuelo: storage/flights/<flight_id>/
+
+    telemetria.csv   telemetría + eventos del vuelo (mismo formato que /export.csv)
+    video.mp4        video del vuelo, convertido automáticamente desde el H.264
+                     (si hubo varias grabaciones: video_2.mp4, video_3.mp4, ...)
+    resumen.json     inicio/fin, muestras, eventos, archivos
+
+La app crea un vuelo nuevo en cada despegue y lo cierra al aterrizar (evento FLIGHT_END).
+El archivo se genera al recibir FLIGHT_END y otra vez cuando termina de llegar el video,
+así que el orden en que lleguen no importa. Se puede regenerar con
+POST /api/flights/{id}/archive.
+"""
+import json
+import logging
+import subprocess
+import threading
+from pathlib import Path
+
+from fastapi import HTTPException
+
+from app.config import FLIGHTS_DIR, VIDEO_FPS
+from app.database.db import connect
+from app.services import telemetry_service, video_service
+from app.services.recorrido_service import ffmpeg_path
+
+log = logging.getLogger("flight_archive")
+
+# Un archivado a la vez por vuelo (FLIGHT_END y fin de video pueden llegar juntos).
+_locks: dict[str, threading.Lock] = {}
+_locks_guard = threading.Lock()
+
+
+def _lock_for(flight_id: str) -> threading.Lock:
+    with _locks_guard:
+        return _locks.setdefault(flight_id, threading.Lock())
+
+
+def flight_dir(flight_id: str) -> Path:
+    video_service.check_id(flight_id)  # mismas reglas: sólo letras, números, _ y -
+    return FLIGHTS_DIR / flight_id
+
+
+def convert_to_mp4(src: Path, dst: Path) -> None:
+    """H.264 crudo → MP4. Primero sin recodificar (rápido); si falla, recodifica."""
+    ff = ffmpeg_path()
+    if not ff:
+        raise RuntimeError("ffmpeg no disponible (instala requirements.txt: imageio-ffmpeg)")
+    tmp = dst.with_suffix(".tmp.mp4")
+    base = [ff, "-y", "-loglevel", "error", "-fflags", "+genpts",
+            "-r", str(VIDEO_FPS), "-f", "h264", "-i", str(src)]
+    attempts = [
+        ["-c:v", "copy"],
+        ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p"],
+    ]
+    last_err = ""
+    for codec in attempts:
+        r = subprocess.run(base + codec + ["-an", "-movflags", "+faststart", str(tmp)],
+                           capture_output=True, text=True, timeout=1800)
+        if r.returncode == 0 and tmp.exists() and tmp.stat().st_size > 0:
+            tmp.replace(dst)
+            return
+        last_err = (r.stderr or "")[-400:]
+    if tmp.exists():
+        tmp.unlink()
+    raise RuntimeError(f"ffmpeg no pudo convertir {src.name}: {last_err}")
+
+
+def _videos_of(flight_id: str) -> list[dict]:
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM videos WHERE flight_id = ? AND completed = 1 ORDER BY started_ms",
+            (flight_id,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def archive_flight(flight_id: str) -> dict:
+    """Escribe/actualiza la carpeta del vuelo. Idempotente."""
+    d = flight_dir(flight_id)
+    flight = telemetry_service.get_flight(flight_id)
+    if not flight:
+        raise HTTPException(404, "Vuelo no encontrado")
+    with _lock_for(flight_id):
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "telemetria.csv").write_text(telemetry_service.export_csv(flight_id), encoding="utf-8")
+
+        errors = []
+        mp4s = []
+        for i, v in enumerate(_videos_of(flight_id), start=1):
+            src = video_service.video_path(v["id"])
+            if not src.exists() or src.stat().st_size == 0:
+                continue
+            dst = d / ("video.mp4" if i == 1 else f"video_{i}.mp4")
+            if dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
+                mp4s.append(dst.name)
+                continue
+            try:
+                convert_to_mp4(src, dst)
+                mp4s.append(dst.name)
+            except Exception as e:  # el CSV ya está guardado aunque falle el video
+                log.warning("Vuelo %s: %s", flight_id, e)
+                errors.append(str(e))
+
+        events = telemetry_service.get_events(flight_id)
+        resumen = {
+            "flight_id": flight_id,
+            "drone_model": flight.get("drone_model"),
+            "started_at_ms": flight.get("started_at_ms"),
+            "last_seen_ms": flight.get("last_seen_ms"),
+            "samples": flight.get("samples"),
+            "events": len(events),
+            "ended": any(e["type"] == "FLIGHT_END" for e in events),
+            "videos": mp4s,
+            "errors": errors,
+        }
+        (d / "resumen.json").write_text(json.dumps(resumen, indent=2, ensure_ascii=False), encoding="utf-8")
+    return {**resumen, "files": list_files(flight_id)}
+
+
+def archive_quietly(flight_id: str) -> None:
+    """Para BackgroundTasks: nunca lanza."""
+    try:
+        if flight_id:
+            archive_flight(flight_id)
+    except Exception as e:
+        log.warning("No se pudo archivar el vuelo %s: %s", flight_id, e)
+
+
+def list_files(flight_id: str) -> list[str]:
+    try:
+        d = flight_dir(flight_id)
+    except HTTPException:
+        return []
+    if not d.is_dir():
+        return []
+    return sorted(p.name for p in d.iterdir() if p.is_file() and ".tmp." not in p.name)
+
+
+def file_path(flight_id: str, name: str) -> Path:
+    if name not in list_files(flight_id):
+        raise HTTPException(404, "Archivo no encontrado")
+    return flight_dir(flight_id) / name

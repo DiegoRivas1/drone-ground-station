@@ -7,6 +7,7 @@ Android `dron-mavicair-telemetry` por Wi-Fi y los muestra en un panel web.
 Mavic Air ──radio──► Control remoto ──USB──► Teléfono (app) ──Wi-Fi──► PC (FastAPI)
                                                                         ├── SQLite (vuelos, telemetría, eventos, rutas)
                                                                         ├── storage/videos/*.h264
+                                                                        ├── storage/flights/<vuelo>/ (telemetria.csv, video.mp4)
                                                                         └── Panel web (mapa, telemetría, video en vivo)
 ```
 
@@ -44,8 +45,12 @@ Al iniciar se imprime la IP de la PC, por ejemplo `http://192.168.1.50:8000`:
 
 ## Panel web
 
-- **Video en vivo:** al pulsar **● REC** en la app, el video se graba en el teléfono y a la vez se envía aquí.
-  Se reproduce en el navegador (H.264 → JMuxer → MediaSource).
+- **Video en vivo:** llega solo mientras el dron está conectado (no hace falta REC). La app envía
+  ~8 fotogramas JPEG por segundo a `/api/live/frame` y el panel los muestra al instante.
+- **Un vuelo = una carpeta:** la app abre un vuelo nuevo en cada despegue y lo cierra al aterrizar
+  (evento `FLIGHT_END`). Durante el vuelo graba el video automáticamente y lo envía aquí. La PC
+  guarda `storage/flights/<vuelo>/telemetria.csv`, `video.mp4` (convertido con ffmpeg) y `resumen.json`.
+  En la pestaña **Vuelos** aparece el botón **VIDEO MP4** de cada vuelo.
 - **Telemetría:** batería, altitud, velocidad, rumbo, satélites/GPS, modo de vuelo.
 - **Mapa:** posición del dron, traza del vuelo, capas satélite/mapa.
 - **Ruta:** marca *Editar ruta*, haz clic en el mapa para poner puntos, **Guardar ruta** y **Activar**.
@@ -75,6 +80,10 @@ Documentación interactiva: `http://<ip>:8000/docs`
 | POST | `/api/events` | Evento de vuelo (TAKEOFF_START, MANUAL_STOP, LANDED, …) |
 | GET | `/api/status` | Última telemetría recibida |
 | GET | `/api/flights` · `/api/flights/{id}/telemetry` · `/events` · `/export.csv` | Historial |
+| GET | `/api/flights/{id}/files` · `/files/{video.mp4, telemetria.csv, resumen.json}` | Carpeta del vuelo |
+| POST | `/api/flights/{id}/archive` | Regenera la carpeta del vuelo |
+| POST | `/api/live/frame` | Fotograma JPEG del video en vivo |
+| GET | `/api/live/latest.jpg` · `/api/live/status` | Último fotograma · estado |
 | GET/POST/DELETE | `/api/routes` · `POST /api/routes/{id}/activate` · `GET /api/routes/active` | Rutas |
 | POST | `/api/video/{rec}/chunk?flight_id=&seq=` | Bloque H.264 (en orden; duplicados se ignoran) |
 | POST | `/api/video/{rec}/complete` | Fin de grabación |
@@ -85,7 +94,7 @@ Documentación interactiva: `http://<ip>:8000/docs`
 | POST | `/api/recorridos/activo/reservar-tramo` | La app pide su número de tramo (al pulsar REC) |
 | POST | `/api/recorridos/{id}/tramos/{n}/archivos/{video.h264, telemetria.csv, meta.json}` · `/completar` | La app sube el tramo (al pulsar STOP) |
 | GET | `/api/recorridos/{id}/informe/informe_final.html` | Informe |
-| WS | `/ws/telemetry` · `/ws/video` | Tiempo real para el panel |
+| WS | `/ws/telemetry` · `/ws/live` (JPEG) · `/ws/video` (H.264) | Tiempo real para el panel |
 
 ## Estructura
 
