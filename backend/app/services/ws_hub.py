@@ -24,6 +24,11 @@ class Hub:
         self.last_gop = bytearray()
         self.live_recording_id: str | None = None
         self._lock = asyncio.Lock()
+        # Video en vivo como imágenes JPEG (siempre activo, no depende de REC).
+        self.live_clients: set[WebSocket] = set()
+        self._live_busy: set[WebSocket] = set()
+        self.last_frame: bytes | None = None
+        self.last_frame_ms: int = 0
 
     # ---------- conexión ----------
     async def add_telemetry(self, ws: WebSocket) -> None:
@@ -44,6 +49,41 @@ class Hub:
 
     def remove_video(self, ws: WebSocket) -> None:
         self.video_clients.discard(ws)
+
+    async def add_live(self, ws: WebSocket) -> None:
+        await ws.accept()
+        self.live_clients.add(ws)
+        if self.last_frame:
+            try:
+                await ws.send_bytes(self.last_frame)
+            except Exception:
+                self.live_clients.discard(ws)
+
+    def remove_live(self, ws: WebSocket) -> None:
+        self.live_clients.discard(ws)
+        self._live_busy.discard(ws)
+
+    def publish_frame(self, frame: bytes, now_ms: int) -> None:
+        """Guarda el último fotograma y lo envía a los visores sin bloquear al teléfono.
+
+        Si un visor todavía está recibiendo el fotograma anterior (red lenta), se le
+        salta éste: así nunca se acumula retraso en el directo.
+        """
+        self.last_frame = frame
+        self.last_frame_ms = now_ms
+        for ws in list(self.live_clients):
+            if ws in self._live_busy:
+                continue
+            self._live_busy.add(ws)
+            asyncio.create_task(self._send_frame(ws, frame))
+
+    async def _send_frame(self, ws: WebSocket, frame: bytes) -> None:
+        try:
+            await asyncio.wait_for(ws.send_bytes(frame), timeout=5)
+        except Exception:
+            self.live_clients.discard(ws)
+        finally:
+            self._live_busy.discard(ws)
 
     # ---------- difusión ----------
     async def broadcast_json(self, kind: str, data: Any) -> None:

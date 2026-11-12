@@ -97,17 +97,29 @@ async function loadFlights() {
       <div class="row"><span class="title">${escapeHtml(f.id)}</span>
         ${f.id === currentFlight ? '<span class="badge ok">ACTUAL</span>' : ""}</div>
       <span class="muted">${escapeHtml(f.drone_model ?? "")} · ${fmtDateTime(f.started_at_ms)} → ${fmtTime(f.last_seen_ms)}
-        · ${f.samples} muestras · ${f.events} eventos</span>
+        · ${f.samples} muestras · ${f.events} eventos${f.ended ? " · aterrizado" : ""}</span>
       <div class="actions">
         <button class="btn btn-ghost btn-sm" data-track="${escapeHtml(f.id)}">Ver traza</button>
         <button class="btn btn-ghost btn-sm" data-events="${escapeHtml(f.id)}">Eventos</button>
         <a class="btn btn-ghost btn-sm" href="/api/flights/${encodeURIComponent(f.id)}/export.csv">CSV</a>
+        ${(f.files || []).filter((n) => n.endsWith(".mp4")).map((n) =>
+          `<a class="btn btn-ghost btn-sm" href="/api/flights/${encodeURIComponent(f.id)}/files/${encodeURIComponent(n)}">${escapeHtml(n.replace(".mp4", "").toUpperCase())} MP4</a>`).join("")}
+        <button class="btn btn-ghost btn-sm" data-archive="${escapeHtml(f.id)}" title="Regenera storage/flights/${escapeHtml(f.id)}/">Guardar carpeta</button>
       </div>
     </li>`).join("");
   list.querySelectorAll("[data-track]").forEach((b) => b.addEventListener("click", async () => {
     const samples = await api(`/api/flights/${encodeURIComponent(b.dataset.track)}/telemetry?limit=50000`);
     const n = showHistory(samples);
     toast(n ? `Traza: ${n} puntos GPS` : "Ese vuelo no tiene posiciones GPS válidas");
+  }));
+  list.querySelectorAll("[data-archive]").forEach((b) => b.addEventListener("click", async () => {
+    b.disabled = true;
+    toast("Generando carpeta del vuelo (CSV + MP4)...");
+    try {
+      const r = await api(`/api/flights/${encodeURIComponent(b.dataset.archive)}/archive`, { method: "POST" });
+      toast(r.errors && r.errors.length ? `Guardado con avisos: ${r.errors[0]}` : `Guardado: ${r.files.join(", ")}`);
+    } catch (e) { toast(`Error: ${e.message || e}`); }
+    loadFlights();
   }));
   list.querySelectorAll("[data-events]").forEach((b) => b.addEventListener("click", async () => {
     const events = await api(`/api/flights/${encodeURIComponent(b.dataset.events)}/events`);

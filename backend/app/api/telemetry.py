@@ -1,8 +1,8 @@
 """Recepción de telemetría y eventos desde la app Android."""
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 
 from app.models.schemas import FlightEventIn, TelemetryBatch
-from app.services import telemetry_service
+from app.services import flight_archive, telemetry_service
 from app.services.ws_hub import hub
 
 router = APIRouter(prefix="/api", tags=["telemetría"])
@@ -21,8 +21,11 @@ async def post_telemetry(batch: TelemetryBatch):
 
 
 @router.post("/events")
-async def post_event(event: FlightEventIn):
+async def post_event(event: FlightEventIn, background: BackgroundTasks):
     saved = telemetry_service.save_event(event)
+    if event.type == "FLIGHT_END":
+        # Carpeta del vuelo: telemetria.csv + video.mp4 (si ya llegó) + resumen.json
+        background.add_task(flight_archive.archive_quietly, event.flight_id)
     await hub.broadcast_json("event", saved)
     return saved
 
