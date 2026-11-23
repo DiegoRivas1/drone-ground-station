@@ -29,9 +29,9 @@ export function initMap() {
   L.control.layers({ "Satélite": sat, "Mapa": osm }).addTo(map);
   L.control.scale({ imperial: false }).addTo(map);
 
-  trackLine = L.polyline([], { color: "#00c2e0", weight: 3 }).addTo(map);
+  trackLine = L.polyline([], { color: "#f2b705", weight: 4 }).addTo(map);
   historyLine = L.polyline([], { color: "#b388ff", weight: 3, dashArray: "4 6" }).addTo(map);
-  editLine = L.polyline([], { color: "#f0a020", weight: 3, dashArray: "6 6" }).addTo(map);
+  editLine = L.polyline([], { color: "#2f5d8a", weight: 3, dashArray: "6 6" }).addTo(map);
   savedRouteLayer = L.layerGroup().addTo(map);
 
   // Leaflet necesita recalcular su tamaño cuando cambia el diseño de la página.
@@ -113,9 +113,9 @@ export function showSavedRoute(route) {
   savedRouteLayer.clearLayers();
   if (!route) return;
   const lls = route.points.map((p) => [p.latitude, p.longitude]);
-  L.polyline(lls, { color: route.active ? "#2fbf71" : "#8b98a8", weight: 3 }).addTo(savedRouteLayer);
+  L.polyline(lls, { color: route.active ? "#2e7d4f" : "#d9dbd6", weight: 3 }).addTo(savedRouteLayer);
   route.points.forEach((p, i) => {
-    L.circleMarker([p.latitude, p.longitude], { radius: 6, color: "#fff", weight: 2, fillColor: "#2fbf71", fillOpacity: 1 })
+    L.circleMarker([p.latitude, p.longitude], { radius: 6, color: "#fff", weight: 2, fillColor: "#2e7d4f", fillOpacity: 1 })
       .bindTooltip(`${p.id} · ${p.altitude_m} m · ${p.speed_mps} m/s`)
       .addTo(savedRouteLayer);
     if (i === 0) map.fitBounds(L.latLngBounds(lls), { padding: [40, 40], maxZoom: 20 });
