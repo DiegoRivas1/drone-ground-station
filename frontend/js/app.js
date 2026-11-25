@@ -29,6 +29,7 @@ function onSamples(flightId, samples) {
   if (flightId !== currentFlight) {
     currentFlight = flightId;
     $("flight-id").textContent = flightId;
+    $("ft-flight").textContent = `Vuelo ${flightId}`;
     clearTrack();
   }
   samples.forEach(updateDrone);
@@ -51,7 +52,10 @@ function addEvent(e, prepend = true) {
     <div class="row"><span class="type ${eventClass(e.type)}">${escapeHtml(e.type)}</span>
       <span class="muted">${fmtTime(e.ts_ms)}</span></div>
     ${e.details ? `<span>${escapeHtml(e.details)}</span>` : ""}`;
-  if (prepend) list.prepend(li); else list.append(li);
+  if (prepend) {
+    list.prepend(li);
+    $("ft-event").textContent = `${e.type}${e.details ? ` · ${e.details}` : ""}`;
+  } else list.append(li);
   while (list.children.length > MAX_EVENTS) list.lastChild.remove();
 }
 
@@ -165,6 +169,7 @@ async function loadInitialState() {
     if (st.flight_id && st.sample) {
       currentFlight = st.flight_id;
       $("flight-id").textContent = st.flight_id;
+      $("ft-flight").textContent = `Vuelo ${st.flight_id}`;
       const recent = await api(`/api/flights/${encodeURIComponent(st.flight_id)}/telemetry?limit=3000`);
       recent.forEach(updateDrone);
       renderTelemetry(st.sample);

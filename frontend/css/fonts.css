@@ -1,0 +1,12 @@
+/* Tipografías locales (Fontsource, licencia OFL): la estación se ve igual sin internet. */
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 500; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/barlow-semi-condensed-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/barlow-semi-condensed-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 700; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/barlow-semi-condensed-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 800; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/barlow-semi-condensed-latin-800-normal.woff2") format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 400; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/chakra-petch-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 500; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/chakra-petch-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 600; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/chakra-petch-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 700; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/chakra-petch-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: swap; src: url("../assets/vendor/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2"); }

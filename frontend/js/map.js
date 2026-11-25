@@ -27,7 +27,14 @@ export function initMap() {
     { maxZoom: 20, maxNativeZoom: 19, attribution: "Imagery &copy; Esri" },
   );
   sat.addTo(map);
-  L.control.layers({ "Satélite": sat, "Mapa": osm }).addTo(map);
+  // Las capas se cambian con los botones "Capas" de la tarjeta del mapa.
+  document.querySelectorAll("[data-layer]").forEach((b) => b.addEventListener("click", () => {
+    const next = b.dataset.layer === "osm" ? osm : sat;
+    const prev = next === osm ? sat : osm;
+    if (map.hasLayer(prev)) map.removeLayer(prev);
+    next.addTo(map);
+    document.querySelectorAll("[data-layer]").forEach((x) => x.classList.toggle("active", x === b));
+  }));
   L.control.scale({ imperial: false }).addTo(map);
 
   trackLine = L.polyline([], { color: themeColor("accent") || "#ffc93c", weight: 4 }).addTo(map);

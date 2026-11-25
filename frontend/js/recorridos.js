@@ -26,7 +26,16 @@ function dur(s) {
   return s >= 60 ? `${Math.floor(s / 60)} min ${Math.round(s % 60)} s` : `${Math.round(s)} s`;
 }
 
+function renderProgreso(rec) {
+  const validos = rec.tramos.filter((t) => t.estado !== "descartado");
+  const listos = validos.filter((t) => t.estado === "recibido").length;
+  const pct = validos.length ? Math.round((listos / validos.length) * 100) : 0;
+  $("rec-progreso").style.width = `${pct}%`;
+  $("rec-progreso-txt").textContent = `${pct}% completado`;
+}
+
 function renderTramos(rec) {
+  renderProgreso(rec);
   const ul = $("rec-tramos");
   if (!rec.tramos.length) {
     ul.innerHTML = '<li class="empty">Aún no hay tramos.</li>';
