@@ -5,7 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Estación de tierra · Inspección vial</title>
   <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
+  <script>
+    /* aplica el tema guardado antes de pintar, para que no parpadee */
+    try { var t = localStorage.getItem("estacion-tema"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/themes.css">
 </head>
 <body>
   <header class="topbar">
@@ -17,6 +23,11 @@
       </div>
     </div>
     <div class="pills">
+      <div class="theme-switch" role="group" aria-label="Tema de la página">
+        <button type="button" data-theme-btn="asfalto" aria-pressed="true"><i class="sw"></i><span>Asfalto</span></button>
+        <button type="button" data-theme-btn="catastro" aria-pressed="false"><i class="sw"></i><span>Catastro</span></button>
+        <button type="button" data-theme-btn="tactico" aria-pressed="false"><i class="sw"></i><span>Táctico</span></button>
+      </div>
       <span class="pill" id="pill-drone"><i></i>Dron: sin datos</span>
       <span class="pill" id="pill-video"><i></i>Video: inactivo</span>
       <span class="pill" id="pill-ws"><i></i>Panel: conectando</span>

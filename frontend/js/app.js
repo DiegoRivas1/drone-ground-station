@@ -5,6 +5,7 @@ import { initRoutes, loadRoutes } from "./routes.js";
 import { renderAge, renderTelemetry } from "./telemetry.js";
 import { initVideo } from "./video.js";
 import { initRecorridos } from "./recorridos.js";
+import { initThemes } from "./themes.js";
 
 const $ = (id) => document.getElementById(id);
 let lastTelemetryMs = null;
@@ -176,6 +177,7 @@ async function loadInitialState() {
 }
 
 initTabs();
+initThemes();
 initMap();
 initRoutes();
 initVideo();
