@@ -1,5 +1,6 @@
 // Mapa Leaflet: posición del dron, traza del vuelo, ruta en edición y rutas guardadas.
 /* global L */
+import { themeColor } from "./themes.js";
 
 // Centro inicial (Arequipa); se recentra al llegar la primera posición del dron.
 const DEFAULT_CENTER = [-16.409, -71.5375];
@@ -26,12 +27,19 @@ export function initMap() {
     { maxZoom: 20, maxNativeZoom: 19, attribution: "Imagery &copy; Esri" },
   );
   sat.addTo(map);
-  L.control.layers({ "Satélite": sat, "Mapa": osm }).addTo(map);
+  // Las capas se cambian con los botones "Capas" de la tarjeta del mapa.
+  document.querySelectorAll("[data-layer]").forEach((b) => b.addEventListener("click", () => {
+    const next = b.dataset.layer === "osm" ? osm : sat;
+    const prev = next === osm ? sat : osm;
+    if (map.hasLayer(prev)) map.removeLayer(prev);
+    next.addTo(map);
+    document.querySelectorAll("[data-layer]").forEach((x) => x.classList.toggle("active", x === b));
+  }));
   L.control.scale({ imperial: false }).addTo(map);
 
-  trackLine = L.polyline([], { color: "#00c2e0", weight: 3 }).addTo(map);
+  trackLine = L.polyline([], { color: themeColor("accent") || "#ffc93c", weight: 4 }).addTo(map);
   historyLine = L.polyline([], { color: "#b388ff", weight: 3, dashArray: "4 6" }).addTo(map);
-  editLine = L.polyline([], { color: "#f0a020", weight: 3, dashArray: "6 6" }).addTo(map);
+  editLine = L.polyline([], { color: themeColor("topo") || "#3dd6c0", weight: 3, dashArray: "6 6" }).addTo(map);
   savedRouteLayer = L.layerGroup().addTo(map);
 
   // Leaflet necesita recalcular su tamaño cuando cambia el diseño de la página.
@@ -42,6 +50,11 @@ export function initMap() {
     // Si el usuario arrastra el mapa, deja de seguir al dron.
     const chk = document.getElementById("chk-follow");
     if (chk.checked) { chk.checked = false; follow = false; }
+  });
+  // Al cambiar de tema, recolorea las trazas ya dibujadas.
+  window.addEventListener("themechange", () => {
+    trackLine.setStyle({ color: themeColor("accent") });
+    editLine.setStyle({ color: themeColor("topo") });
   });
   return map;
 }
@@ -113,9 +126,9 @@ export function showSavedRoute(route) {
   savedRouteLayer.clearLayers();
   if (!route) return;
   const lls = route.points.map((p) => [p.latitude, p.longitude]);
-  L.polyline(lls, { color: route.active ? "#2fbf71" : "#8b98a8", weight: 3 }).addTo(savedRouteLayer);
+  L.polyline(lls, { color: route.active ? themeColor("ok") : themeColor("muted"), weight: 3 }).addTo(savedRouteLayer);
   route.points.forEach((p, i) => {
-    L.circleMarker([p.latitude, p.longitude], { radius: 6, color: "#fff", weight: 2, fillColor: "#2fbf71", fillOpacity: 1 })
+    L.circleMarker([p.latitude, p.longitude], { radius: 6, color: "#fff", weight: 2, fillColor: themeColor("ok"), fillOpacity: 1 })
       .bindTooltip(`${p.id} · ${p.altitude_m} m · ${p.speed_mps} m/s`)
       .addTo(savedRouteLayer);
     if (i === 0) map.fitBounds(L.latLngBounds(lls), { padding: [40, 40], maxZoom: 20 });

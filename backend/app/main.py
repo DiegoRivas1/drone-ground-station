@@ -65,6 +65,16 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def sin_cache_para_el_panel(request, call_next):
+    """El navegador revalida HTML/JS/CSS en cada carga: así un cambio del panel se ve sin Ctrl+F5."""
+    resp = await call_next(request)
+    if not request.url.path.startswith(("/api", "/ws")) and resp.headers.get("content-type", "").startswith(
+            ("text/html", "text/css", "text/javascript", "application/javascript")):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "ips": _local_ips()}

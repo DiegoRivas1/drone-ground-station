@@ -1,0 +1,46 @@
+/*
+  Los dos diseños de Stitch como temas. Cada uno es solo un juego de variables:
+    catastro  Stitch A · topografía y cartografía: azul de plano, lima de alta visibilidad, azul cielo
+    vialidad  Stitch B · inspección vial: asfalto frío, ámbar y cian, tipografía Chakra Petch
+  Se elige con el selector de la barra superior y se guarda en el navegador.
+*/
+:root, :root[data-theme="catastro"] {
+  --c-page: #070c18; --c-top: #0b1120; --c-card: #1e293b; --c-head: #0f172a; --c-inset: #0b1120; --c-deep: #070c18;
+  --c-border: #334155; --c-border2: #334155;
+  --text: #f1f5f9; --muted: #94a3b8;
+  --accent: #84cc16; --accent-ink: #070c18;
+  --info: #38bdf8; --ok: #a3e635; --warn: #fb923c; --bad: #f43f5e; --extra: #818cf8;
+  --sans: "Barlow Semi Condensed", "Bahnschrift", "Arial Narrow", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, Consolas, monospace;
+  --title-weight: 800; --btn-weight: 800;
+  --grid-rgb: 56, 189, 248; --grid-line: .08; --g1: 20px; --g2: 40px;
+  --sweep-rgb: 132, 204, 22; --sweep-time: 5s;
+}
+:root[data-theme="vialidad"] {
+  --c-page: #0a0d11; --c-top: #0f1318; --c-card: #1a202c; --c-head: #141a22; --c-inset: #0f1318; --c-deep: #0a0d11;
+  --c-border: #2d3748; --c-border2: #232d3f;
+  --text: #f1f5f9; --muted: #94a3b8;
+  --accent: #f59e0b; --accent-ink: #0f1318;
+  --info: #06b6d4; --ok: #34d399; --warn: #f59e0b; --bad: #ef4444; --extra: #14b8a6;
+  --sans: "Chakra Petch", "Bahnschrift", "Arial Narrow", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, Consolas, monospace;
+  --title-weight: 700; --btn-weight: 700;
+  --grid-rgb: 6, 182, 212; --grid-line: .15; --g1: 24px; --g2: 48px;
+  --sweep-rgb: 6, 182, 212; --sweep-time: 4s;
+}
+
+/* ---------- selector de diseño ---------- */
+.theme-switch {
+  display: inline-flex; gap: 2px; padding: 2px; border-radius: 4px;
+  background: var(--c-inset); border: 1px solid var(--c-border);
+}
+.theme-switch button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 7px; border: 0; border-radius: 3px; cursor: pointer;
+  background: transparent; color: var(--muted); font: 600 12px var(--mono);
+}
+.theme-switch button:hover { color: var(--text); }
+.theme-switch button[aria-pressed="true"] { background: var(--c-card); color: var(--text); box-shadow: 0 0 0 1px var(--accent) inset; }
+.theme-switch .sw { width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(255, 255, 255, .3); }
+.theme-switch [data-theme-btn="catastro"] .sw { background: linear-gradient(135deg, #84cc16 50%, #38bdf8 50%); }
+.theme-switch [data-theme-btn="vialidad"] .sw { background: linear-gradient(135deg, #f59e0b 50%, #06b6d4 50%); }
+@media (max-width: 760px) { .theme-switch button span { display: none; } }

@@ -3,36 +3,74 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Estación de tierra · Mavic Air</title>
+  <title>Estación de tierra · Inspección vial</title>
+  <script>
+    /* aplica el tema guardado antes de pintar, para que no parpadee */
+    try { var t = localStorage.getItem("estacion-tema"); if (t === "vialidad" || t === "catastro") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
   <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/themes.css">
 </head>
 <body>
+  <!-- ============ Barra superior ============ -->
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">◎</span>
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="8" stroke-dasharray="3 2" stroke-width="1.8"/>
+          <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
+          <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+        </svg>
+        <span class="ping"><i></i><i></i></span>
+      </div>
       <div>
-        <h1>Estación de tierra</h1>
-        <p class="sub">DJI Mavic Air · <span id="flight-id">sin vuelo</span></p>
+        <div class="brand-row">
+          <h1>Estación de tierra</h1>
+          <span class="tag" id="theme-tag">Catastro</span>
+        </div>
+        <p class="sub">
+          <span>DJI Mavic Air</span><span class="sep">•</span>
+          <span class="mission">Misión: <b id="flight-id">sin vuelo</b></span><span class="sep">•</span>
+          <span class="road">Inspección vial</span>
+        </p>
       </div>
     </div>
+
     <div class="pills">
+      <div class="theme-switch" role="group" aria-label="Diseño de la página">
+        <button type="button" data-theme-btn="catastro" aria-pressed="true"><i class="sw"></i><span>Catastro</span></button>
+        <button type="button" data-theme-btn="vialidad" aria-pressed="false"><i class="sw"></i><span>Vialidad</span></button>
+      </div>
       <span class="pill" id="pill-drone"><i></i>Dron: sin datos</span>
       <span class="pill" id="pill-video"><i></i>Video: inactivo</span>
       <span class="pill" id="pill-ws"><i></i>Panel: conectando</span>
+      <span class="pill pill-bat" id="pill-bat" title="Batería del dron">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M3 6a2 2 0 012-2h8a2 2 0 012 2v1h1a2 2 0 012 2v2a2 2 0 01-2 2h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2V6zm10 2H5v6h8V8z"/></svg>
+        <b id="hdr-bat">Batería: --</b>
+        <span class="mini-bar"><span id="hdr-bat-bar"></span></span>
+      </span>
     </div>
   </header>
 
+  <!-- ============ Tres columnas ============ -->
   <main class="layout">
-    <!-- Columna izquierda: video + telemetría -->
+    <!-- Izquierda: video + telemetría -->
     <section class="col col-left">
       <div class="card video-card">
         <div class="card-head">
           <h2>Video en vivo</h2>
-          <button class="btn btn-ghost" id="btn-video-reconnect" title="Reiniciar reproductor">↻</button>
+          <button class="icon-btn" id="btn-video-reconnect" title="Reiniciar reproductor" aria-label="Reiniciar reproductor">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
         </div>
         <div class="video-wrap">
           <img id="live-img" alt="Video en vivo del dron">
+          <div class="hud-grid" aria-hidden="true"></div>
+          <div class="hud-horizon" aria-hidden="true"><span></span></div>
+          <div class="hud-tag hud-tl" id="hud-alt">ALT -- m</div>
+          <div class="hud-tag hud-tr" id="hud-spd">-- m/s</div>
           <div class="video-empty" id="video-empty">
             <strong>Sin video</strong>
             <span>Abre la app con el dron conectado y la PC configurada: el video llega solo (no hace falta REC).</span>
@@ -40,22 +78,30 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head"><h2>Telemetría</h2><span class="muted" id="tl-age">—</span></div>
+      <div class="card telemetry-card">
+        <div class="card-head">
+          <h2>Telemetría de vuelo</h2>
+          <span class="live-badge" id="tl-age">—</span>
+        </div>
         <div class="tiles">
-          <div class="tile"><span class="k">Batería</span><span class="v" id="tl-battery">--</span><div class="bar"><div id="tl-battery-bar"></div></div></div>
+          <div class="tile tile-bat"><span class="k">Batería</span><span class="v" id="tl-battery">--</span><div class="bar"><div id="tl-battery-bar"></div></div></div>
           <div class="tile"><span class="k">Altitud</span><span class="v" id="tl-alt">--</span></div>
           <div class="tile"><span class="k">Velocidad</span><span class="v" id="tl-speed">--</span></div>
-          <div class="tile"><span class="k">Rumbo</span><span class="v" id="tl-heading">--</span></div>
-          <div class="tile"><span class="k">GPS</span><span class="v" id="tl-gps">--</span></div>
-          <div class="tile"><span class="k">Estado</span><span class="v" id="tl-state">--</span></div>
+          <div class="tile tile-head"><span class="k">Rumbo</span>
+            <div class="head-row"><span class="v" id="tl-heading">--</span>
+              <span class="compass" aria-hidden="true"><em>N</em><i id="tl-compass"></i></span></div>
+          </div>
+          <div class="tile"><span class="k">GPS</span><span class="v v-sm" id="tl-gps">--</span></div>
+          <div class="tile tile-state"><span class="k">Estado</span><span class="v v-sm" id="tl-state">--</span></div>
         </div>
-        <dl class="kv">
-          <dt>Latitud</dt><dd id="tl-lat">--</dd>
-          <dt>Longitud</dt><dd id="tl-lon">--</dd>
-          <dt>Modo</dt><dd id="tl-mode">--</dd>
-          <dt>Vel. vertical</dt><dd id="tl-vz">--</dd>
-        </dl>
+        <table class="kv-table">
+          <tbody>
+            <tr><td>Latitud</td><td id="tl-lat">--</td></tr>
+            <tr><td>Longitud</td><td id="tl-lon">--</td></tr>
+            <tr><td>Modo de vuelo</td><td id="tl-mode">--</td></tr>
+            <tr><td>Velocidad vertical</td><td id="tl-vz">--</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -63,14 +109,23 @@
     <section class="col col-center">
       <div class="card map-card">
         <div class="card-head">
-          <h2>Mapa</h2>
+          <h2>Mapa de operaciones</h2>
           <div class="toolbar">
             <label class="chk"><input type="checkbox" id="chk-follow" checked> Seguir dron</label>
             <label class="chk"><input type="checkbox" id="chk-edit"> Editar ruta (clic en mapa)</label>
-            <button class="btn btn-ghost" id="btn-clear-track">Borrar traza</button>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-track">Borrar traza</button>
           </div>
         </div>
-        <div id="map"></div>
+        <div class="layer-bar">
+          <span class="muted">Capas:</span>
+          <button type="button" class="chip active" data-layer="sat">Satélite</button>
+          <button type="button" class="chip" data-layer="osm">Mapa</button>
+          <span class="layer-credit">Esri World Imagery · OpenStreetMap</span>
+        </div>
+        <div class="map-box">
+          <div id="map"></div>
+          <div class="radar" aria-hidden="true"></div>
+        </div>
       </div>
     </section>
 
@@ -87,32 +142,38 @@
 
         <div class="tab-panel active" id="tab-recorrido">
           <!-- Sin recorrido abierto -->
-          <div id="rec-nuevo">
+          <div id="rec-nuevo" class="panel-box">
             <p class="hint">Un <b>recorrido</b> agrupa varios <b>tramos</b>. Cada tramo es un
               <b>● REC → ■ STOP</b> en la app: al pulsar STOP el teléfono envía aquí el video y la telemetría.</p>
             <div class="form-row"><label>Nombre del recorrido<input id="rec-nombre" placeholder="Ej. Inspección talud norte"></label></div>
-            <button class="btn" id="btn-rec-nuevo">NUEVO RECORRIDO</button>
+            <button class="btn" id="btn-rec-nuevo">Nuevo recorrido</button>
           </div>
 
           <!-- Recorrido seleccionado -->
           <div id="rec-detalle" hidden>
-            <div class="rec-head">
+            <div class="panel-box rec-head">
               <div>
+                <span class="eyebrow">Recorrido seleccionado</span>
                 <div class="title" id="rec-titulo">—</div>
                 <span class="muted" id="rec-sub">—</span>
               </div>
               <span class="badge" id="rec-estado">—</span>
             </div>
             <div class="btn-row" id="rec-acciones-abierto">
-              <button class="btn" id="btn-tramo-nuevo">NUEVO TRAMO</button>
-              <button class="btn btn-ghost" id="btn-rec-finalizar">FINALIZAR RECORRIDO</button>
+              <button class="btn" id="btn-tramo-nuevo">Nuevo tramo</button>
+              <button class="btn btn-ghost" id="btn-rec-finalizar">Finalizar recorrido</button>
             </div>
             <p class="hint" id="rec-instruccion"></p>
-            <ul class="list" id="rec-tramos"></ul>
+
+            <div class="panel-box">
+              <div class="pipe-head"><span>Tramos del recorrido</span><b id="rec-progreso-txt">0% completado</b></div>
+              <div class="progress"><div id="rec-progreso"></div></div>
+              <ul class="list" id="rec-tramos"></ul>
+            </div>
 
             <h3>Informe</h3>
             <div class="btn-row">
-              <button class="btn" id="btn-informe">GENERAR INFORME</button>
+              <button class="btn" id="btn-informe">Generar informe</button>
               <a class="btn btn-ghost" id="lnk-informe" target="_blank" hidden>Abrir informe</a>
               <button class="btn btn-ghost" id="btn-rec-reabrir" hidden>Reabrir</button>
             </div>
@@ -126,21 +187,25 @@
         </div>
 
         <div class="tab-panel" id="tab-route">
-          <p class="hint">Activa <b>Editar ruta</b> y haz clic en el mapa para añadir puntos. Guarda y pulsa
-            <b>Activar</b>: en la app, <b>WP: CARGAR RUTA DEL PANEL</b> la descarga.</p>
-          <div class="form-row">
-            <label>Nombre<input id="route-name" value="Inspección 1"></label>
+          <div class="panel-box">
+            <p class="hint">Activa <b>Editar ruta</b> y haz clic en el mapa para añadir puntos. Guarda y pulsa
+              <b>Activar</b>: en la app, <b>WP: CARGAR RUTA DEL PANEL</b> la descarga.</p>
+            <div class="form-row">
+              <label>Nombre<input id="route-name" value="Inspección 1"></label>
+            </div>
+            <div class="form-row two">
+              <label>Altitud (m)<input id="route-alt" type="number" min="1.5" max="30" step="0.5" value="5"></label>
+              <label>Velocidad (m/s)<input id="route-speed" type="number" min="0.5" max="5" step="0.5" value="1"></label>
+            </div>
+            <div class="btn-row">
+              <button class="btn" id="btn-route-save">Guardar ruta</button>
+              <button class="btn btn-ghost" id="btn-route-undo">Deshacer</button>
+              <button class="btn btn-danger" id="btn-route-clear">Limpiar</button>
+            </div>
           </div>
-          <div class="form-row two">
-            <label>Altitud (m)<input id="route-alt" type="number" min="1.5" max="30" step="0.5" value="5"></label>
-            <label>Velocidad (m/s)<input id="route-speed" type="number" min="0.5" max="5" step="0.5" value="1"></label>
-          </div>
-          <ol class="point-list" id="route-points"></ol>
-          <div class="route-meta muted" id="route-meta">0 puntos · 0 m</div>
-          <div class="btn-row">
-            <button class="btn" id="btn-route-save">Guardar ruta</button>
-            <button class="btn btn-ghost" id="btn-route-undo">Deshacer</button>
-            <button class="btn btn-ghost" id="btn-route-clear">Limpiar</button>
+          <div class="panel-box">
+            <div class="pipe-head"><span>Puntos de la ruta</span><b class="route-meta" id="route-meta">0 puntos · 0 m</b></div>
+            <ol class="point-list" id="route-points"></ol>
           </div>
           <h3>Rutas guardadas</h3>
           <ul class="list" id="routes-list"></ul>
@@ -155,13 +220,19 @@
         </div>
 
         <div class="tab-panel" id="tab-videos">
-          <p class="hint">Los .h264 se reproducen con VLC o se convierten:
+          <p class="hint panel-box">Los .h264 se reproducen con VLC o se convierten:
             <code>ffmpeg -f h264 -i video.h264 -c copy video.mp4</code>. Si ffmpeg está instalado en esta PC, aparece el botón MP4.</p>
           <ul class="list" id="videos-list"></ul>
         </div>
       </div>
     </section>
   </main>
+
+  <!-- ============ Pie ============ -->
+  <footer class="statusbar">
+    <span class="ft-left"><i class="dot"></i><b id="ft-flight">Sin vuelo</b><span class="ft-sep">|</span><span id="ft-event">Sin eventos todavía</span></span>
+    <span class="ft-right" id="ft-palette"></span>
+  </footer>
 
   <div class="toast" id="toast"></div>
 
