@@ -144,6 +144,10 @@ export async function refrescar(forzar = false) {
   let activo = null;
   try { activo = await api("/api/recorridos/activo"); } catch { return; }
   $("rec-nuevo").hidden = !!activo;
+  // Distintivo REC en la tarjeta de video mientras un tramo del recorrido abierto se está grabando.
+  const grabando = activo?.tramos?.find((t) => t.estado === "grabando");
+  $("rec-badge").hidden = !grabando;
+  if (grabando) $("rec-badge-txt").textContent = `REC · TRAMO ${grabando.n}`;
   if (!seleccionado && activo) seleccionado = activo.id;
 
   let rec = null;

@@ -49,6 +49,10 @@ export function initVideo() {
     frames = 0;
     const live = Date.now() - lastFrameMs < 3000;
     setPill("pill-video", live ? "ok" : null, live ? `Video: en vivo (${fps} fps)` : "Video: inactivo");
+    const img = document.getElementById("live-img");
+    const res = document.getElementById("video-res");
+    res.textContent = live && img.naturalWidth ? `${img.naturalWidth}×${img.naturalHeight} · ${fps} FPS` : "SIN SEÑAL";
+    res.classList.toggle("live", live);
     if (!live) document.getElementById("video-empty").classList.remove("hidden");
     if (ws && ws.readyState === WebSocket.OPEN) ws.send("ping");
   }, 1000);

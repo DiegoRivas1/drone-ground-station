@@ -6,6 +6,11 @@ function num(v, digits, unit = "") {
   return v == null || Number.isNaN(v) ? "--" : `${Number(v).toFixed(digits)}${unit}`;
 }
 
+const POINTS = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+function cardinal(deg) {
+  return POINTS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+}
+
 export function renderTelemetry(s) {
   if (!s) return;
   const bat = s.battery_pct;
@@ -22,13 +27,16 @@ export function renderTelemetry(s) {
 
   $("tl-alt").textContent = num(s.altitude_m, 1, " m");
   $("tl-speed").textContent = num(s.speed_mps, 1, " m/s");
+  $("tl-speed-kmh").textContent = s.speed_mps == null ? "--" : `${(s.speed_mps * 3.6).toFixed(1)} km/h`;
   $("tl-heading").textContent = num(s.heading_deg, 0, "°");
+  $("tl-cardinal").textContent = Number.isFinite(s.heading_deg) ? cardinal(s.heading_deg) : "";
   $("tl-compass").style.setProperty("--deg", `${Number.isFinite(s.heading_deg) ? s.heading_deg : 0}deg`);
   $("hud-alt").textContent = `ALT ${num(s.altitude_m, 1, " m")}`;
   $("hud-spd").textContent = num(s.speed_mps, 1, " m/s");
-  $("tl-gps").textContent = s.satellites == null && s.gps_level == null
-    ? "--" : `${s.satellites ?? "-"} sat · ${s.gps_level ?? "-"}/5`;
+  $("tl-gps").textContent = s.satellites == null ? "--" : `${s.satellites} sat`;
+  $("tl-gps-level").textContent = s.gps_level == null ? "--" : `Señal ${s.gps_level}/5`;
   $("tl-state").textContent = s.is_flying ? "Volando" : s.motors_on ? "Motores ON" : "En tierra";
+  $("tl-state-mode").textContent = s.flight_mode ?? "--";
   $("tl-lat").textContent = num(s.latitude, 7);
   $("tl-lon").textContent = num(s.longitude, 7);
   $("tl-mode").textContent = s.flight_mode ?? "--";

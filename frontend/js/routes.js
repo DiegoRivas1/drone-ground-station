@@ -1,6 +1,6 @@
 // Editor de rutas GPS y lista de rutas guardadas.
 import { api, distanceM, escapeHtml, fmtDateTime, toast } from "./api.js";
-import { drawEditRoute, setFollow, setMapClickHandler, showSavedRoute } from "./map.js";
+import { drawEditRoute, setFollow, setMapClickHandler, showSavedRoute, wpName } from "./map.js";
 
 // Mismos límites que FlightValidator.kt en la app.
 const MIN_SEGMENT_M = 0.6;
@@ -20,10 +20,13 @@ function redraw() {
     redraw();
   });
 
+  // Tabla de waypoints como en Stitch: ID · coordenadas · altitud · velocidad · quitar.
   const list = $("route-points");
-  list.innerHTML = points.map((p, i) => `
-    <li>${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)} · ${p.altitude_m} m
-      <button class="btn btn-ghost btn-sm" data-del="${i}" title="Quitar">✕</button></li>`).join("");
+  list.innerHTML = points.length ? points.map((p, i) => `
+    <tr><td class="wp-id">${wpName(i)}</td><td>${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}</td>
+      <td>${p.altitude_m} m</td><td>${p.speed_mps} m/s</td>
+      <td><button class="btn btn-ghost btn-sm" data-del="${i}" title="Quitar">✕</button></td></tr>`).join("")
+    : '<tr><td class="empty" colspan="5">Activa Editar ruta y haz clic en el mapa.</td></tr>';
   list.querySelectorAll("[data-del]").forEach((b) =>
     b.addEventListener("click", () => { points.splice(Number(b.dataset.del), 1); redraw(); }));
 

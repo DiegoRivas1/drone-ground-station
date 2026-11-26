@@ -12,6 +12,7 @@ let historyLine;
 let editLine;
 let editMarkers = [];
 let savedRouteLayer;
+let segLabels;
 let follow = true;
 let centeredOnce = false;
 let onMapClick = null;
@@ -37,9 +38,11 @@ export function initMap() {
   }));
   L.control.scale({ imperial: false }).addTo(map);
 
-  trackLine = L.polyline([], { color: themeColor("accent") || "#ffc93c", weight: 4 }).addTo(map);
-  historyLine = L.polyline([], { color: "#b388ff", weight: 3, dashArray: "4 6" }).addTo(map);
-  editLine = L.polyline([], { color: themeColor("topo") || "#3dd6c0", weight: 3, dashArray: "6 6" }).addTo(map);
+  // Como en Stitch: traza recorrida en azul cielo (info), ruta planificada en lima (accent).
+  trackLine = L.polyline([], { color: themeColor("info"), weight: 3, dashArray: "6 4", className: "trace trace-done" }).addTo(map);
+  historyLine = L.polyline([], { color: themeColor("extra"), weight: 3, dashArray: "4 6" }).addTo(map);
+  editLine = L.polyline([], { color: themeColor("accent"), weight: 3, dashArray: "8 6", className: "trace trace-plan" }).addTo(map);
+  segLabels = L.layerGroup().addTo(map);
   savedRouteLayer = L.layerGroup().addTo(map);
 
   // Leaflet necesita recalcular su tamaño cuando cambia el diseño de la página.
@@ -53,8 +56,9 @@ export function initMap() {
   });
   // Al cambiar de tema, recolorea las trazas ya dibujadas.
   window.addEventListener("themechange", () => {
-    trackLine.setStyle({ color: themeColor("accent") });
-    editLine.setStyle({ color: themeColor("topo") });
+    trackLine.setStyle({ color: themeColor("info") });
+    historyLine.setStyle({ color: themeColor("extra") });
+    editLine.setStyle({ color: themeColor("accent") });
   });
   return map;
 }
@@ -62,12 +66,24 @@ export function initMap() {
 export function setFollow(v) { follow = v; }
 export function setMapClickHandler(fn) { onMapClick = fn; }
 
-const droneIcon = (heading) => L.divIcon({
+// Marcador del dron (Stitch): anillo con pulso, cuerpo con flecha de rumbo y etiqueta con la altitud.
+// Se crea una sola vez y luego solo se actualizan rumbo y etiqueta, para no reiniciar la animación.
+const droneIcon = L.divIcon({
   className: "",
-  html: `<div class="drone-icon" style="transform: rotate(${heading ?? 0}deg)">➤</div>`,
-  iconSize: [26, 26],
-  iconAnchor: [13, 13],
+  html: `<div class="drone-mk"><span class="drone-ring"></span><span class="drone-halo"></span>
+    <div class="drone-body"><i class="drone-nose"></i></div>
+    <div class="drone-label">MAVIC AIR · -- m</div></div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
 });
+
+function paintDrone(s) {
+  const el = droneMarker.getElement();
+  if (!el) return;
+  el.querySelector(".drone-body").style.transform = `rotate(${s.heading_deg ?? 0}deg)`;
+  const alt = Number.isFinite(s.altitude_m) ? `${s.altitude_m.toFixed(1)} m` : "-- m";
+  el.querySelector(".drone-label").textContent = `MAVIC AIR · ${alt}`;
+}
 
 function validPos(s) {
   return s && s.latitude != null && s.longitude != null &&
@@ -75,17 +91,16 @@ function validPos(s) {
     !(s.latitude === 0 && s.longitude === 0);
 }
 
-/** Actualiza el dron en el mapa. El icono ➤ apunta al Este, por eso se resta 90°. */
+/** Actualiza el dron en el mapa (la flecha apunta al Norte con rumbo 0°). */
 export function updateDrone(s) {
   if (!validPos(s)) return;
   const ll = [s.latitude, s.longitude];
-  const icon = droneIcon((s.heading_deg ?? 0) - 90);
   if (!droneMarker) {
-    droneMarker = L.marker(ll, { icon, zIndexOffset: 1000 }).addTo(map).bindTooltip("Mavic Air");
+    droneMarker = L.marker(ll, { icon: droneIcon, zIndexOffset: 1000, interactive: false }).addTo(map);
   } else {
     droneMarker.setLatLng(ll);
-    droneMarker.setIcon(icon);
   }
+  paintDrone(s);
   const pts = trackLine.getLatLngs();
   const last = pts[pts.length - 1];
   if (!last || last.distanceTo(ll) > 0.3) trackLine.addLatLng(ll);
@@ -105,20 +120,43 @@ export function showHistory(samples) {
   return pts.length;
 }
 
-const wpIcon = (label) => L.divIcon({ className: "wp-icon", html: label, iconSize: [22, 22], iconAnchor: [11, 11] });
+export const wpName = (i) => `WP-${String(i + 1).padStart(2, "0")}`;
+
+const wpIcon = (i) => L.divIcon({
+  className: "wp-icon",
+  html: `<span>${i + 1}</span><b class="wp-label">${wpName(i)}</b>`,
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+});
+
+/** Etiquetas de distancia en el centro de cada tramo de la ruta (como en Stitch). */
+function drawSegmentLabels(lls) {
+  segLabels.clearLayers();
+  for (let i = 1; i < lls.length; i++) {
+    const a = L.latLng(lls[i - 1]);
+    const b = L.latLng(lls[i]);
+    const mid = L.latLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
+    L.marker(mid, {
+      interactive: false,
+      icon: L.divIcon({ className: "seg-label", html: `<span>${a.distanceTo(b).toFixed(1)} m</span>`, iconSize: null }),
+    }).addTo(segLabels);
+  }
+}
 
 /** Dibuja la ruta en edición. points = [{latitude, longitude, ...}] */
 export function drawEditRoute(points, onDragEnd) {
   editMarkers.forEach((m) => m.remove());
   editMarkers = points.map((p, i) => {
-    const m = L.marker([p.latitude, p.longitude], { icon: wpIcon(i + 1), draggable: true }).addTo(map);
+    const m = L.marker([p.latitude, p.longitude], { icon: wpIcon(i), draggable: true }).addTo(map);
     m.on("dragend", () => {
       const ll = m.getLatLng();
       onDragEnd(i, ll.lat, ll.lng);
     });
     return m;
   });
-  editLine.setLatLngs(points.map((p) => [p.latitude, p.longitude]));
+  const lls = points.map((p) => [p.latitude, p.longitude]);
+  editLine.setLatLngs(lls);
+  drawSegmentLabels(lls);
 }
 
 /** Muestra una ruta guardada (sólo lectura). */

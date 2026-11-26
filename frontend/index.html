@@ -61,9 +61,12 @@
       <div class="card video-card">
         <div class="card-head">
           <h2>Video en vivo</h2>
-          <button class="icon-btn" id="btn-video-reconnect" title="Reiniciar reproductor" aria-label="Reiniciar reproductor">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          </button>
+          <div class="head-actions">
+            <span class="rec-badge" id="rec-badge" hidden><i></i><span id="rec-badge-txt">REC</span></span>
+            <button class="icon-btn" id="btn-video-reconnect" title="Reiniciar reproductor" aria-label="Reiniciar reproductor">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
         </div>
         <div class="video-wrap">
           <img id="live-img" alt="Video en vivo del dron">
@@ -76,6 +79,10 @@
             <span>Abre la app con el dron conectado y la PC configurada: el video llega solo (no hace falta REC).</span>
           </div>
         </div>
+        <div class="card-foot">
+          <span>Cámara del dron · JPEG en vivo</span>
+          <b id="video-res">SIN SEÑAL</b>
+        </div>
       </div>
 
       <div class="card telemetry-card">
@@ -86,13 +93,13 @@
         <div class="tiles">
           <div class="tile tile-bat"><span class="k">Batería</span><span class="v" id="tl-battery">--</span><div class="bar"><div id="tl-battery-bar"></div></div></div>
           <div class="tile"><span class="k">Altitud</span><span class="v" id="tl-alt">--</span></div>
-          <div class="tile"><span class="k">Velocidad</span><span class="v" id="tl-speed">--</span></div>
-          <div class="tile tile-head"><span class="k">Rumbo</span>
+          <div class="tile"><span class="k">Velocidad</span><span class="v" id="tl-speed">--</span><span class="s s-ok" id="tl-speed-kmh">--</span></div>
+          <div class="tile tile-head"><span class="k">Rumbo<b id="tl-cardinal"></b></span>
             <div class="head-row"><span class="v" id="tl-heading">--</span>
               <span class="compass" aria-hidden="true"><em>N</em><i id="tl-compass"></i></span></div>
           </div>
-          <div class="tile"><span class="k">GPS</span><span class="v v-sm" id="tl-gps">--</span></div>
-          <div class="tile tile-state"><span class="k">Estado</span><span class="v v-sm" id="tl-state">--</span></div>
+          <div class="tile"><span class="k">GPS</span><span class="v" id="tl-gps">--</span><span class="s s-ok" id="tl-gps-level">--</span></div>
+          <div class="tile tile-state"><span class="k">Estado</span><span class="v v-sm" id="tl-state">--</span><span class="s" id="tl-state-mode">--</span></div>
         </div>
         <table class="kv-table">
           <tbody>
@@ -205,7 +212,12 @@
           </div>
           <div class="panel-box">
             <div class="pipe-head"><span>Puntos de la ruta</span><b class="route-meta" id="route-meta">0 puntos · 0 m</b></div>
-            <ol class="point-list" id="route-points"></ol>
+            <div class="wp-table-wrap">
+              <table class="wp-table">
+                <thead><tr><th>ID</th><th>Coordenadas</th><th>Alt.</th><th>Vel.</th><th></th></tr></thead>
+                <tbody id="route-points"></tbody>
+              </table>
+            </div>
           </div>
           <h3>Rutas guardadas</h3>
           <ul class="list" id="routes-list"></ul>
