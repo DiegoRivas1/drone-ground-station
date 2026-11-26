@@ -116,3 +116,8 @@ tools/simulate_drone.py      telemetría/video en vivo simulados
 tools/simulate_tramo.py      simula un ● REC / ■ STOP de la app (un tramo)
 GUIA_RECORRIDOS.md
 ```
+
+## Acceso desde Internet (Cloudflare)
+
+La estación puede abrirse a Internet con un túnel de Cloudflare **protegida con token**
+(`python tools/make_token.py`, `run_tunnel.bat`). Pasos, límites y seguridad en [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md).

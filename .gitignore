@@ -10,3 +10,7 @@ backend/storage/flights/*
 !backend/storage/flights/.gitkeep
 backend/storage/recorridos/*
 !backend/storage/recorridos/.gitkeep
+
+# Token de acceso de la estacion (secreto)
+backend/station_token.txt
+backend/.env

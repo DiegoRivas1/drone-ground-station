@@ -11,13 +11,21 @@ Usa sólo la librería estándar de Python.
 import argparse
 import json
 import math
+import os
 import time
 import urllib.request
 from datetime import datetime
 
 
+# Token de la estación (si la protegiste): --token o variable de entorno STATION_TOKEN.
+TOKEN = os.environ.get("STATION_TOKEN", "")
+
+
 def post(url: str, body: bytes, content_type: str) -> dict:
-    req = urllib.request.Request(url, data=body, method="POST", headers={"Content-Type": content_type})
+    headers = {"Content-Type": content_type}
+    if TOKEN:
+        headers["X-Station-Token"] = TOKEN
+    req = urllib.request.Request(url, data=body, method="POST", headers=headers)
     with urllib.request.urlopen(req, timeout=5) as r:
         return json.loads(r.read() or b"null")
 
@@ -56,7 +64,10 @@ def main() -> None:
     ap.add_argument("--lat", type=float, default=-16.4090)
     ap.add_argument("--lon", type=float, default=-71.5375)
     ap.add_argument("--video", help="archivo .h264 para enviar en bloques como video en vivo")
+    ap.add_argument("--token", help="token de la estación (o variable STATION_TOKEN)")
     args = ap.parse_args()
+    global TOKEN
+    TOKEN = args.token or TOKEN
 
     base = args.url.rstrip("/")
     flight_id = "sim_" + datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -1,10 +1,12 @@
 // Utilidades compartidas: llamadas a la API, avisos y formato.
+import { showLogin } from "./auth.js";
 
 export async function api(path, options = {}) {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
+  if (res.status === 401) showLogin();
   if (!res.ok) {
     let msg = `${res.status}`;
     try {
