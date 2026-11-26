@@ -17,14 +17,22 @@ import subprocess
 import sys
 import tempfile
 import time
+import os
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 
+# Token de la estación (si la protegiste): --token o variable de entorno STATION_TOKEN.
+TOKEN = os.environ.get("STATION_TOKEN", "")
+
+
 def req(base, method, path, body=None, ctype="application/json"):
     data = json.dumps(body).encode() if isinstance(body, dict) else body
-    r = urllib.request.Request(base + path, data=data, method=method, headers={"Content-Type": ctype})
+    headers = {"Content-Type": ctype}
+    if TOKEN:
+        headers["X-Station-Token"] = TOKEN
+    r = urllib.request.Request(base + path, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(r, timeout=120) as resp:
             return json.loads(resp.read() or b"null")
@@ -73,7 +81,10 @@ def main():
     ap.add_argument("--lat", type=float, default=-16.4053)
     ap.add_argument("--lon", type=float, default=-71.5246)
     ap.add_argument("--rumbo", type=float, default=None, help="grados; por defecto distinto en cada tramo")
+    ap.add_argument("--token", help="token de la estación (o variable STATION_TOKEN)")
     args = ap.parse_args()
+    global TOKEN
+    TOKEN = args.token or TOKEN
     base = args.url.rstrip("/")
 
     with tempfile.TemporaryDirectory() as td:

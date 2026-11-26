@@ -8,16 +8,18 @@ Arranque (desde la carpeta backend/):
 - Panel web en  /         (carpeta ../frontend)
 - Documentación interactiva en /docs
 """
+import os
 import socket
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import flights, live, recorridos, routes, telemetry, video, ws
+from app.api import auth, flights, live, recorridos, routes, telemetry, video, ws
 from app.config import FRONTEND_DIR
 from app.database.db import init_db
+from app.security import MIN_TOKEN_LEN, TokenAuthMiddleware, load_token
 
 
 def _local_ips() -> list[str]:
@@ -45,6 +47,13 @@ async def lifespan(_: FastAPI):
     for ip in ips:
         print(f"  Panel:          http://{ip}:8000")
         print(f"  En la app (PC): http://{ip}:8000")
+    tok = load_token()
+    if tok is None:
+        print("  Acceso: SIN TOKEN (solo para red local). NO la expongas a Internet / Cloudflare.")
+        print("          Crea uno con:  python tools/make_token.py")
+    else:
+        aviso = "  [corto: usa uno de 16+ caracteres]" if len(tok) < MIN_TOKEN_LEN else ""
+        print(f"  Acceso: con token (X-Station-Token en la app, login en el panel){aviso}")
     from app.services.informe_service import diagnostico
     d = diagnostico()
     print(f"  Análisis (inspeccion-dron): {'OK' if d['inspeccion_encontrado'] else 'NO ENCONTRADO'} -> {d['inspeccion_dir']}")
@@ -57,12 +66,20 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Drone Ground Station", version="1.0", lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# El panel se sirve desde este mismo servidor (mismo origen), así que CORS no hace falta.
+# Solo se activa si defines STATION_CORS_ORIGINS="https://a.com,https://b.com".
+_cors = [o.strip() for o in os.getenv("STATION_CORS_ORIGINS", "").split(",") if o.strip()]
+if _cors:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+# Va al final para quedar como capa externa (se ejecuta primero en cada petición).
+app.add_middleware(TokenAuthMiddleware, token=load_token())
 
 
 @app.middleware("http")
@@ -76,10 +93,14 @@ async def sin_cache_para_el_panel(request, call_next):
 
 
 @app.get("/api/health")
-def health():
-    return {"status": "ok", "ips": _local_ips()}
+def health(request: Request):
+    out = {"status": "ok"}
+    if request.scope.get("state", {}).get("authorized"):   # las IPs locales solo para quien tiene token
+        out["ips"] = _local_ips()
+    return out
 
 
+app.include_router(auth.router)
 app.include_router(telemetry.router)
 app.include_router(flights.router)
 app.include_router(routes.router)
