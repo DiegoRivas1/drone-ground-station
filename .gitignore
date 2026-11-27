@@ -12,5 +12,5 @@ backend/storage/recorridos/*
 !backend/storage/recorridos/.gitkeep
 
 # Token de acceso de la estacion (secreto)
-backend/station_token.txt
+backend/station_token.txt.off
 backend/.env

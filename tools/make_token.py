@@ -1,4 +1,4 @@
-"""Crea el token de acceso de la estación (backend/station_token.txt) si no existe.
+"""Crea el token de acceso de la estación (backend/station_token.txt.off) si no existe.
 
     python tools/make_token.py          # crea uno nuevo si falta y lo muestra
     python tools/make_token.py --nuevo  # reemplaza el existente (hay que actualizar la app)
@@ -9,7 +9,7 @@ import secrets
 import sys
 from pathlib import Path
 
-archivo = Path(__file__).resolve().parent.parent / "backend" / "station_token.txt"
+archivo = Path(__file__).resolve().parent.parent / "backend" / "station_token.txt.off"
 
 if archivo.exists() and "--nuevo" not in sys.argv:
     print(f"Ya existe un token en {archivo}\n(usa --nuevo para reemplazarlo)\n")

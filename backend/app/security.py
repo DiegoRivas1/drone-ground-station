@@ -1,7 +1,7 @@
 """Acceso con token para exponer la estación a Internet (Cloudflare Tunnel).
 
 - El token se define con la variable de entorno STATION_TOKEN o en el archivo
-  backend/station_token.txt (no se sube a git). Se genera con: python tools/make_token.py
+  backend/station_token.txt.off (no se sube a git). Se genera con: python tools/make_token.py
 - Sin token configurado la estación funciona como antes (red local, sin login) y avisa.
 - Con token:
     * La app Android lo manda en la cabecera  X-Station-Token  (o  Authorization: Bearer ...).
@@ -23,7 +23,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 COOKIE_NAME = "station_token"
 COOKIE_MAX_AGE = 30 * 24 * 3600
-TOKEN_FILE = Path(__file__).resolve().parent.parent / "station_token.txt"
+TOKEN_FILE = Path(__file__).resolve().parent.parent / "station_token.txt.off"
 
 MAX_FAILS = 10
 WINDOW_S = 60.0
